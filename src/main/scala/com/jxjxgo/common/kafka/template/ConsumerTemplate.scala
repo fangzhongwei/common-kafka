@@ -40,9 +40,13 @@ class ConsumerTemplateImpl @Inject()(@Named("kafka.bootstrap.servers") servers: 
           buffer += iterator.next().value()
         }
         if (buffer.size >= minBatchSize) {
-          logger.info(s"receive message : $buffer")
-          consumerService.consume(buffer)
-          consumer.commitSync
+          try {
+            logger.info(s"receive message : $buffer")
+            consumerService.consume(buffer)
+            consumer.commitSync
+          } catch {
+            case ex: Exception => logger.error("consumer", ex)
+          }
           buffer.clear
         }
       }
