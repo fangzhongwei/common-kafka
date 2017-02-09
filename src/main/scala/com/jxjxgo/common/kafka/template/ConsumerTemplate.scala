@@ -17,19 +17,28 @@ import scala.concurrent.{Future, Promise}
   */
 trait ConsumerTemplate {
   def init: Future[Unit]
+
+  def consume(topics: String): Future[Unit]
 }
 
 class ConsumerTemplateImpl @Inject()(@Named("kafka.bootstrap.servers") servers: String,
                                      @Named("kafka.group.id") groupId: String,
-                                     @Named("kafka.topics") topics: String,
                                      consumerService: ConsumerService) extends ConsumerTemplate {
   private[this] val logger: Logger = LoggerFactory.getLogger(getClass)
+  private[this] var consumer: KafkaConsumer[String, Array[Byte]] = _
 
   override def init: Future[Unit] = {
     val promise: Promise[Unit] = Promise[Unit]()
     Future {
       val props: Properties = buildProperties
-      val consumer: KafkaConsumer[String, Array[Byte]] = new KafkaConsumer[String, Array[Byte]](props)
+      consumer = new KafkaConsumer[String, Array[Byte]](props)
+      promise.success()
+    }
+  }
+
+  override def consume(topics: String): Future[Unit] = {
+    val promise: Promise[Unit] = Promise[Unit]()
+    Future {
       consumer.subscribe(util.Arrays.asList(topics.split(","): _*))
       val minBatchSize: Int = 1
       val buffer: ListBuffer[Array[Byte]] = ListBuffer[Array[Byte]]()
