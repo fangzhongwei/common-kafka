@@ -32,34 +32,56 @@ class ConsumerTemplateImpl @Inject()(@Named("kafka.bootstrap.servers") servers: 
     Future {
       val props: Properties = buildProperties
       consumer = new KafkaConsumer[String, Array[Byte]](props)
+      logger.info(s"consumer startup [servers: $servers, groupId: $groupId]")
       promise.success()
     }
   }
 
+  init
+
   override def consume(topics: String): Future[Unit] = {
     val promise: Promise[Unit] = Promise[Unit]()
     Future {
-      consumer.subscribe(util.Arrays.asList(topics.split(","): _*))
-      val minBatchSize: Int = 1
-      val buffer: ListBuffer[Array[Byte]] = ListBuffer[Array[Byte]]()
-      while (true) {
-        val records: ConsumerRecords[String, Array[Byte]] = consumer.poll(100)
-        val iterator: util.Iterator[ConsumerRecord[String, Array[Byte]]] = records.iterator()
-        while (iterator.hasNext) {
-          buffer += iterator.next().value()
-        }
-        if (buffer.size >= minBatchSize) {
-          try {
-            logger.info(s"receive message : $buffer")
-            consumerService.consume(buffer)
-            consumer.commitSync
-          } catch {
-            case ex: Exception => logger.error("consumer", ex)
-          }
-          buffer.clear
-        }
-      }
+      checkInitSuccess
+      doStartConsume(topics)
       promise.success()
+    }
+  }
+
+  private def checkInitSuccess: Unit = {
+    if (consumer == null) {
+      try {
+        Thread.sleep(200)
+      } catch {
+        case ex:Exception =>
+          logger.error("consume", ex)
+      }
+      checkInitSuccess
+    }
+  }
+
+  def doStartConsume(topics: String): Unit = {
+    val topicList: util.List[String] = util.Arrays.asList(topics.split(","): _*)
+    logger.info(s"start consume, topics : $topicList")
+    consumer.subscribe(topicList)
+    val minBatchSize: Int = 1
+    val buffer: ListBuffer[Array[Byte]] = ListBuffer[Array[Byte]]()
+    while (true) {
+      val records: ConsumerRecords[String, Array[Byte]] = consumer.poll(200)
+      val iterator: util.Iterator[ConsumerRecord[String, Array[Byte]]] = records.iterator()
+      while (iterator.hasNext) {
+        buffer += iterator.next().value()
+      }
+      if (buffer.size >= minBatchSize) {
+        try {
+          logger.info(s"receive message : $buffer")
+          consumerService.consume(buffer)
+          consumer.commitSync
+        } catch {
+          case ex: Exception => logger.error("consumer", ex)
+        }
+        buffer.clear
+      }
     }
   }
 

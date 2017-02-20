@@ -8,17 +8,19 @@ import scala.collection.mutable.ListBuffer
   */
 object Test {
   def main(args: Array[String]): Unit = {
-    new ConsumerTemplateImpl("192.168.181.142:9092", "join.game", "game.type.10", new ConsumerService {
+    val comsumer: ConsumerTemplateImpl = new ConsumerTemplateImpl("192.168.181.143:9092", "join.game", new ConsumerService {
       override def consume(list: ListBuffer[Array[Byte]]): Unit = {
         list.foreach {
           r => println(s"value: ${new String(r)}")
         }
       }
-    }).init
+    })
+    println("start consume")
+    comsumer.consume("game.type.10")
+    println("consume started")
 
-    val impl: ProducerTemplateImpl = new ProducerTemplateImpl("192.168.181.142:9092")
-    impl.init()
-    Thread.sleep(3000)// wait init finish
+
+    val impl: ProducerTemplateImpl = new ProducerTemplateImpl("192.168.181.143:9092")
     impl.send("game.type.10", "i am joining game.".getBytes())
     println("send success... print enter to quit.")
 

@@ -34,6 +34,8 @@ class ProducerTemplateImpl @Inject()(@Named("kafka.bootstrap.servers") servers: 
     }).start()
   }
 
+  init
+
   def initProducer: Unit = {
     try {
       val props: Properties = parseProducerConfig
@@ -43,7 +45,7 @@ class ProducerTemplateImpl @Inject()(@Named("kafka.bootstrap.servers") servers: 
           if (e != null) {
             logger.error("connect kafka error", e)
             connected = false
-            Thread.sleep(5000)
+            Thread.sleep(1000)
             init
           } else {
             logger.info("connect kafka success")
@@ -73,11 +75,25 @@ class ProducerTemplateImpl @Inject()(@Named("kafka.bootstrap.servers") servers: 
   }
 
   override def send(topic: String, data: Array[Byte]): Unit = {
+    checkInitSuccess
     producer.send(new ProducerRecord(topic, data))
   }
 
   override def send(topic: String, data: Array[Byte], callback: Callback): Unit = {
+    checkInitSuccess
     producer.send(new ProducerRecord(topic, data), callback)
+  }
+
+  private def checkInitSuccess: Unit = {
+    if (producer == null) {
+      try {
+        Thread.sleep(200)
+      } catch {
+        case ex:Exception =>
+          logger.error("consume", ex)
+      }
+      checkInitSuccess
+    }
   }
 
   override def close: Unit = {
